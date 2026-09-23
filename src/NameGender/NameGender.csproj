@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0: .NET Framework 4.6.2+ and older .NET Core, where most
+         CRM and HR integrations still run. net8.0: current LTS, no extra
+         dependency because System.Text.Json is in the box. -->
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Response fields are documented in the API reference; a summary per JSON field is noise. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <RootNamespace>NameGender</RootNamespace>
+
+    <PackageId>NameGender</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>NameGender</Authors>
+    <Description>Official .NET client for the NameGender API: gender from a first name, full name, email or username, with probability, sample size and source for every answer.</Description>
+    <PackageTags>gender;gender-detection;name;api-client;data-enrichment</PackageTags>
+    <PackageProjectUrl>https://namegender.com/client-libraries</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/anpekesen/namegender-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="icon.png" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>
