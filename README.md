@@ -51,8 +51,8 @@ Console.WriteLine(batch.Summary.MatchRate);
 ```
 
 Pass `type: InputType.Email` or `InputType.Username` for a list of emails or
-usernames. For files of hundreds of thousands of rows, the CSV/XLSX upload in the
-dashboard is faster than looping over this method.
+usernames. For files of hundreds of thousands of rows, a [file job](#file-jobs) is
+faster than looping over this method.
 
 ## Options
 
@@ -84,6 +84,109 @@ foreach (var r in dist.Registrations)
 var account = await client.AccountAsync(); // costs no credits
 Console.WriteLine(account.CreditsRemaining);
 ```
+
+## File jobs
+
+Upload a CSV or XLSX file (up to 100 MB and 1,000,000 rows) and get it back
+with gender columns added. One credit per row, charged only if the job
+completes.
+
+```csharp
+var job = await client.CreateBatchAsync("customers.csv", new BatchOptions
+{
+    NameColumn = "first_name",     // required to start
+    CountryColumn = "country",     // optional: a country code per row
+});
+
+var done = await client.WaitBatchAsync(job.Id, onProgress: j => Console.WriteLine(j.Progress));
+if (done.Status == "failed")
+{
+    throw new InvalidOperationException(done.Error!.Code);
+}
+
+await File.WriteAllBytesAsync("customers-gender.csv", await client.DownloadBatchAsync(done.Id));
+```
+
+`CreateBatchAsync` also takes a `byte[]` or a `Stream` with a file name; the
+extension (`.csv`, `.xlsx`) tells the API the format. `DownloadBatchAsync` has an
+overload that copies into a `Stream`.
+
+`NameColumn` is required to start: a guessed column that turns out to be
+wrong would spend credits on the wrong data. To see the columns and the cost
+first, upload with `Start = false`, read `job.Inspection`, then call
+`client.StartBatchAsync(job.Id, new BatchSettings { NameColumn = "first_name" })`.
+
+`CreateBatchAsync` sends an `Idempotency-Key` and retries network errors,
+timeouts and 502/503/504 with the same key, so a retry never opens a second job.
+Set `IdempotencyKey` to keep that guarantee across your own retries; `Retries`
+(default 2) sets how many extra attempts are made.
+
+`WaitBatchAsync` returns a failed job rather than throwing; branch on
+`job.Error.Code`. It throws `NameGenderException` with `StatusCode` 0 when the
+timeout (default one hour) runs out. `CancelBatchAsync` returns the credit of a
+job that has not started, and deletes a finished one. `ListBatchesAsync(limit, page)`
+includes jobs started from the dashboard. Up to three jobs can be queued or
+running at once; a fourth is refused with `429 too_many_batches`.
+
+The result appends `gender`, `probability`, `sample_size`, `country`, `source`,
+`matched_as`, `first_name`, `middle_name`, `last_name` and `name_type` to every
+row. A CSV result starts with a UTF-8 byte order mark so that Excel reads it
+correctly.
+
+## Webhooks
+
+Add an endpoint under Webhooks in the dashboard, and NameGender sends a signed
+`POST` to it when a file job completes or fails, and when credits are about to
+run out (`credits.low`) or have run out (`credits.depleted`, checked hourly).
+`NameGenderWebhooks.Verify` checks the signature and the timestamp, and returns
+the event. It throws `WebhookVerificationException` for a request that is not
+genuine.
+
+```csharp
+using NameGender;
+
+var app = WebApplication.CreateBuilder(args).Build();
+var secret = Environment.GetEnvironmentVariable("NAMEGENDER_WEBHOOK_SECRET")!;
+
+app.MapPost("/namegender", async (HttpRequest request) =>
+{
+    // The raw bytes, not a bound model: the signature covers the exact body sent.
+    using var body = new MemoryStream();
+    await request.Body.CopyToAsync(body);
+
+    WebhookEvent evt;
+    try
+    {
+        evt = NameGenderWebhooks.Verify(body.ToArray(), request.Headers["NameGender-Signature"], secret);
+    }
+    catch (WebhookVerificationException)
+    {
+        return Results.BadRequest();
+    }
+
+    if (evt.Type == "batch.completed")
+    {
+        var job = evt.AsBatchJob()!;         // the job, as GetBatchAsync returns it
+        // queue the work and answer at once
+    }
+    else if (evt.Type == "credits.low")
+    {
+        var alert = evt.AsCreditsAlert()!;   // alert.CreditsRemaining, alert.RunwayDays
+    }
+
+    return Results.NoContent();
+});
+
+app.Run();
+```
+
+If middleware reads the body before your endpoint, call
+`request.EnableBuffering()` early and rewind `request.Body` before copying it.
+
+Use `evt.Id` (also the `NameGender-Event-Id` header) to ignore a delivery you
+have already handled. A retry carries the same id, and order is not guaranteed.
+Answer quickly and do slow work afterwards: anything other than a 2xx within 10
+seconds is retried, up to 8 attempts over about 45 hours.
 
 ## Errors
 

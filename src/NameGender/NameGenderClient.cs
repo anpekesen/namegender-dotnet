@@ -18,7 +18,7 @@ namespace NameGender
     /// Reuse one instance, or pass an <see cref="HttpClient"/> from IHttpClientFactory.
     /// The client is safe to share across threads.
     /// </remarks>
-    public sealed class NameGenderClient : IDisposable
+    public sealed partial class NameGenderClient : IDisposable
     {
         /// <summary>Production API root.</summary>
         public const string DefaultBaseUrl = "https://namegender.com/api/v1";
@@ -125,28 +125,53 @@ namespace NameGender
             }
         }
 
-        private async Task<T> SendAsync<T>(HttpMethod method, string path, Dictionary<string, object>? payload, CancellationToken cancellationToken)
+        private Task<T> SendAsync<T>(HttpMethod method, string path, Dictionary<string, object>? payload, CancellationToken cancellationToken)
         {
-            using var request = new HttpRequestMessage(method, _baseUrl + path);
+            var content = payload == null ? null : new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            return SendAsync<T>(method, path, content, null, cancellationToken);
+        }
+
+        private async Task<T> SendAsync<T>(HttpMethod method, string path, HttpContent? content, string? idempotencyKey, CancellationToken cancellationToken)
+        {
+            using var request = NewRequest(method, path, content, idempotencyKey);
+            using var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            return JsonSerializer.Deserialize<T>(body)
+                ?? throw new NameGenderException((int)response.StatusCode, null, "The API returned an empty body.", null, null, null, body);
+        }
+
+        private HttpRequestMessage NewRequest(HttpMethod method, string path, HttpContent? content = null, string? idempotencyKey = null)
+        {
+            var request = new HttpRequestMessage(method, _baseUrl + path) { Content = content };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.UserAgent.ParseAdd("namegender-dotnet/" + typeof(NameGenderClient).Assembly.GetName().Version?.ToString(3));
 
-            if (payload != null)
+            if (idempotencyKey != null)
             {
-                request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
             }
 
-            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return request;
+        }
 
-            if (!response.IsSuccessStatusCode)
+        /// <summary>Sends the request and returns a 2xx response undisposed; anything else throws.</summary>
+        private async Task<HttpResponseMessage> SendCoreAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
             {
+                return response;
+            }
+
+            using (response)
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 throw NameGenderException.From((int)response.StatusCode, body, response.Headers.RetryAfter?.Delta);
             }
-
-            return JsonSerializer.Deserialize<T>(body)
-                ?? throw new NameGenderException((int)response.StatusCode, null, "The API returned an empty body.", null, null, null, body);
         }
 
         /// <inheritdoc />

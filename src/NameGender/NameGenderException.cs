@@ -8,7 +8,11 @@ namespace NameGender
     /// <c>no_credits</c>, <c>invalid_key</c> or <c>rate_limited</c>; the full list is at
     /// https://namegender.com/docs.
     /// </summary>
-    public sealed class NameGenderException : Exception
+    /// <remarks>
+    /// Also thrown with <see cref="StatusCode"/> 0 when <see cref="NameGenderClient.WaitBatchAsync"/>
+    /// times out; <see cref="WebhookVerificationException"/> derives from it.
+    /// </remarks>
+    public class NameGenderException : Exception
     {
         /// <summary>HTTP status code.</summary>
         public int StatusCode { get; }
@@ -38,6 +42,12 @@ namespace NameGender
             Docs = docs;
             RetryAfter = retryAfter;
             RawBody = rawBody;
+        }
+
+        /// <summary>For failures that are not an HTTP response, such as a webhook that does not verify.</summary>
+        protected NameGenderException(string message)
+            : this(0, null, message, null, null, null, "")
+        {
         }
 
         internal static NameGenderException From(int status, string body, TimeSpan? retryAfterHeader)
