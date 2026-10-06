@@ -15,6 +15,18 @@ namespace NameGender
         public string? Country { get; set; }
 
         /// <summary>
+        /// The end user's language tag, e.g. "it-IT" or "pt_BR". Its region is used as the country
+        /// when <see cref="Country"/> is not set; a tag without a region ("en") sets none.
+        /// </summary>
+        public string? Locale { get; set; }
+
+        /// <summary>
+        /// The end user's IP address. Its country is used when neither <see cref="Country"/> nor a
+        /// regional <see cref="Locale"/> is set. Not stored by the API.
+        /// </summary>
+        public string? Ip { get; set; }
+
+        /// <summary>
         /// Fall back to a language model for names not in the database. Needs AI consent
         /// on the account; the API answers <c>ai_consent_required</c> otherwise.
         /// </summary>
@@ -103,6 +115,9 @@ namespace NameGender
         [JsonPropertyName("credits_remaining")] public int CreditsRemaining { get; set; }
         [JsonPropertyName("data_version")] public string? DataVersion { get; set; }
         [JsonPropertyName("request_id")] public string? RequestId { get; set; }
+
+        /// <summary>Where <see cref="GenderResult.Country"/> came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
     }
 
     /// <summary>Counts for a whole batch.</summary>
@@ -121,6 +136,9 @@ namespace NameGender
     {
         [JsonPropertyName("results")] public List<GenderResult> Results { get; set; } = new List<GenderResult>();
         [JsonPropertyName("summary")] public BulkSummary Summary { get; set; } = new BulkSummary();
+
+        /// <summary>Where the request's country came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
     }
 
     /// <summary>

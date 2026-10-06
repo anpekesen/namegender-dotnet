@@ -90,6 +90,45 @@ public class ClientTests
     }
 
     [Fact]
+    public async Task Locale_and_ip_are_sent_only_when_set_and_country_source_is_read()
+    {
+        var (client, handler) = Client(HttpStatusCode.OK, """
+            {"query":"Andrea","gender":"male","probability":97,"country":"IT","country_source":"locale","source":"db","confidence":"high"}
+            """);
+
+        var result = await client.NameAsync("Andrea", new LookupOptions { Locale = "it-IT", Ip = "203.0.113.7" });
+
+        var sent = Sent(handler);
+        Assert.Equal("it-IT", sent.GetProperty("locale").GetString());
+        Assert.Equal("203.0.113.7", sent.GetProperty("ip").GetString());
+        Assert.False(sent.TryGetProperty("country", out _));
+        Assert.Equal("locale", result.CountrySource);
+
+        await client.NameAsync("Andrea", new LookupOptions { Locale = "", Ip = null });
+        Assert.Equal(new[] { "name" }, Sent(handler).EnumerateObject().Select(p => p.Name));
+    }
+
+    [Fact]
+    public async Task Bulk_sends_locale_and_ip_and_reads_a_null_country_source()
+    {
+        var (client, handler) = Client(HttpStatusCode.OK, """
+            {"credits_charged":1,"credits_remaining":9,"took_ms":2,"country_source":null,
+             "summary":{"total":1,"identified":1,"unknown":0,"match_rate":100},
+             "results":[{"query":"Wei","gender":"male","probability":80,"country":null,"source":"db","confidence":"medium"}]}
+            """);
+
+        var result = await client.BulkAsync(new[] { "Wei" }, new LookupOptions { Locale = "en", Ip = "2001:db8::1" });
+
+        Assert.Equal("en", Sent(handler).GetProperty("locale").GetString());
+        Assert.Equal("2001:db8::1", Sent(handler).GetProperty("ip").GetString());
+        Assert.Null(result.CountrySource);
+
+        await client.BulkAsync(new[] { "Wei" });
+        Assert.False(Sent(handler).TryGetProperty("locale", out _));
+        Assert.False(Sent(handler).TryGetProperty("ip", out _));
+    }
+
+    [Fact]
     public async Task Bulk_sends_a_list_and_keeps_the_order()
     {
         var (client, handler) = Client(HttpStatusCode.OK, """

@@ -114,6 +114,16 @@ namespace NameGender
                 payload["country"] = options.Country!;
             }
 
+            if (!string.IsNullOrEmpty(options.Locale))
+            {
+                payload["locale"] = options.Locale!;
+            }
+
+            if (!string.IsNullOrEmpty(options.Ip))
+            {
+                payload["ip"] = options.Ip!;
+            }
+
             if (options.AiFallback)
             {
                 payload["ai_fallback"] = true;

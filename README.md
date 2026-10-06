@@ -59,8 +59,23 @@ faster than looping over this method.
 | Option | Sent as | Effect |
 |---|---|---|
 | `Country` | `country` | ISO 3166-1 alpha-2 hint. Andrea is male in Italy and female in Germany. |
+| `Locale` | `locale` | The end user's language tag, e.g. `it-IT` or `pt_BR`. Its region is used as the country when `Country` is not set; `en` alone sets none. |
+| `Ip` | `ip` | The end user's IP address. Its country is used when neither `Country` nor a regional `Locale` is set. Not stored. |
 | `AiFallback` | `ai_fallback` | Ask a language model when the name is not in the data. Needs AI consent on the account. |
 | `BestGuess` | `best_guess` | Return the likelier gender even below the probability threshold. |
+
+`Country` wins over `Locale`, and `Locale` over `Ip`. `CountrySource` on the
+response (on a bulk response, once for the whole request) says which one was used: `country`, `locale`,
+`ip`, or null when none was.
+
+```csharp
+var result = await client.NameAsync("Andrea", new LookupOptions
+{
+    Locale = "it-IT",                                         // the user's language setting
+    Ip = httpContext.Connection.RemoteIpAddress?.ToString(),  // the user's address, not your server's
+});
+// result.Country "IT", result.CountrySource "locale"
+```
 
 ## Country distribution
 
