@@ -114,6 +114,35 @@ or `organization`, and `Reason` says why it is not gendered (`gender_unknown`,
 `Parts` holds the pieces of the formal salutation (`Opening`, `Courtesy`,
 `Academic`, `Name`); any of them may be null.
 
+## Name check
+
+Whether a name typed into a form looks like a real person's name, with the
+reasons. One credit per name.
+
+```csharp
+var junk = await client.NameCheckAsync("asdf qwerty");
+// junk.Assessment "implausible", junk.Score 0,
+// junk.Signals: keyboard_pattern on "asdf" and on "qwerty", ...
+
+var jennifer = await client.NameCheckAsync("Jennifer Null");
+// jennifer.Assessment "plausible"
+
+// First and last name stored separately: nothing is parsed
+await client.NameCheckFromPartsAsync("Jennifer", "Null", new NameCheckOptions { Country = "US" });
+
+// Up to 100 names; results come back in order
+var many = await client.NameCheckBulkAsync(new[] { "Jennifer Null", "asdf qwerty" });
+Console.WriteLine(many.Summary.Implausible);
+```
+
+`Assessment` is `plausible`, `suspicious` or `implausible`, `Score` runs from
+0 to 100, and each signal has a `Code` (`keyboard_pattern`, `placeholder`,
+`contains_digits`, `first_name_not_found`, ...), a `Severity` and the `Part`
+and `Value` it is about. It never calls a name fake: use it to flag records for
+a look, not to reject people automatically. Surnames are judged by their shape
+only. `NameCheckOptions` takes `Country`, `Locale` and `Ip`, as in
+[Options](#options).
+
 ## Country distribution
 
 Which countries a name is recorded in. This is not a country-of-origin or

@@ -271,6 +271,107 @@ namespace NameGender
     }
 
     /// <summary>
+    /// Options for <see cref="NameGenderClient.NameCheckAsync"/>, <see cref="NameGenderClient.NameCheckFromPartsAsync"/>
+    /// and <see cref="NameGenderClient.NameCheckBulkAsync"/>. Only the ones set are sent.
+    /// </summary>
+    /// <remarks>There is no <c>BestGuess</c>, <c>AiFallback</c> or <c>Language</c> here.</remarks>
+    public sealed class NameCheckOptions
+    {
+        /// <summary>ISO 3166-1 alpha-2 country hint for the first-name lookup.</summary>
+        public string? Country { get; set; }
+
+        /// <summary>The end user's language tag, e.g. "de-AT": a country hint.</summary>
+        public string? Locale { get; set; }
+
+        /// <summary>The end user's IP address: a country hint when neither a country nor a regional locale is set. Not stored.</summary>
+        public string? Ip { get; set; }
+    }
+
+    /// <summary>One reason behind a name check, e.g. <c>keyboard_pattern</c> on the first name "asdf".</summary>
+    public sealed class NameCheckSignal
+    {
+        /// <summary>
+        /// <c>keyboard_pattern</c>, <c>repeated_characters</c>, <c>placeholder</c>, <c>contains_digits</c>,
+        /// <c>first_name_not_found</c>, <c>first_name_attested</c>, ...
+        /// </summary>
+        [JsonPropertyName("code")] public string Code { get; set; } = "";
+
+        /// <summary><c>high</c>, <c>medium</c>, <c>low</c>, <c>info</c> or <c>positive</c>.</summary>
+        [JsonPropertyName("severity")] public string Severity { get; set; } = "";
+
+        /// <summary><c>full</c>, <c>first_name</c>, <c>last_name</c> or null.</summary>
+        [JsonPropertyName("part")] public string? Part { get; set; }
+
+        /// <summary>The text the signal is about, or null.</summary>
+        [JsonPropertyName("value")] public string? Value { get; set; }
+    }
+
+    /// <summary>What the first-name lookup found.</summary>
+    public sealed class NameCheckEvidence
+    {
+        /// <summary><c>counted</c>, <c>attested</c>, <c>not_found</c> or null when there was no first name to look up.</summary>
+        [JsonPropertyName("first_name_status")] public string? FirstNameStatus { get; set; }
+
+        [JsonPropertyName("first_name_counted_records")] public long FirstNameCountedRecords { get; set; }
+    }
+
+    /// <summary>
+    /// Whether a name looks like a real person's name. It never calls a name fake: use it to flag
+    /// records for a look, not to reject people automatically.
+    /// </summary>
+    public class NameCheckResult
+    {
+        /// <summary>The name you sent.</summary>
+        [JsonPropertyName("query")] public string? Query { get; set; }
+
+        /// <summary><c>plausible</c>, <c>suspicious</c> or <c>implausible</c>.</summary>
+        [JsonPropertyName("assessment")] public string Assessment { get; set; } = "";
+
+        /// <summary>0 to 100; higher looks more like a real person's name.</summary>
+        [JsonPropertyName("score")] public int Score { get; set; }
+
+        [JsonPropertyName("signals")] public List<NameCheckSignal> Signals { get; set; } = new List<NameCheckSignal>();
+        [JsonPropertyName("first_name")] public string? FirstName { get; set; }
+        [JsonPropertyName("last_name")] public string? LastName { get; set; }
+
+        /// <summary><c>personal</c>, <c>organization</c> or <c>role</c>.</summary>
+        [JsonPropertyName("name_type")] public string? NameType { get; set; }
+
+        [JsonPropertyName("evidence")] public NameCheckEvidence Evidence { get; set; } = new NameCheckEvidence();
+    }
+
+    /// <summary>A single name check: the result plus the envelope.</summary>
+    public sealed class NameCheckResponse : NameCheckResult
+    {
+        [JsonPropertyName("credits_charged")] public int CreditsCharged { get; set; }
+        [JsonPropertyName("credits_remaining")] public int CreditsRemaining { get; set; }
+        [JsonPropertyName("data_version")] public string? DataVersion { get; set; }
+        [JsonPropertyName("request_id")] public string? RequestId { get; set; }
+
+        /// <summary>Where the country hint came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+    }
+
+    /// <summary>How many names in a bulk name check got each assessment.</summary>
+    public sealed class NameCheckSummary
+    {
+        [JsonPropertyName("total")] public int Total { get; set; }
+        [JsonPropertyName("plausible")] public int Plausible { get; set; }
+        [JsonPropertyName("suspicious")] public int Suspicious { get; set; }
+        [JsonPropertyName("implausible")] public int Implausible { get; set; }
+    }
+
+    /// <summary>A bulk name check. Results are in the order the names were sent.</summary>
+    public sealed class NameCheckBulkResponse : Envelope
+    {
+        [JsonPropertyName("results")] public List<NameCheckResult> Results { get; set; } = new List<NameCheckResult>();
+        [JsonPropertyName("summary")] public NameCheckSummary Summary { get; set; } = new NameCheckSummary();
+
+        /// <summary>Where the request's country came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+    }
+
+    /// <summary>
     /// Which countries a name is recorded in. Not a country-of-origin or ethnicity
     /// inference: <see cref="Registrations"/> is counted volume, comparable only among
     /// countries that publish counted birth statistics, and <see cref="AttestedIn"/> is
