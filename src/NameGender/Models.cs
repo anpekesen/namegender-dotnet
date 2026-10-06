@@ -142,6 +142,135 @@ namespace NameGender
     }
 
     /// <summary>
+    /// Options for <see cref="NameGenderClient.SalutationAsync"/>, <see cref="NameGenderClient.SalutationFromPartsAsync"/>
+    /// and <see cref="NameGenderClient.SalutationBulkAsync"/>. Only the ones set are sent.
+    /// </summary>
+    /// <remarks>
+    /// There is no <c>BestGuess</c> or <c>AiFallback</c> here: a gender that is not certain gives
+    /// the neutral form instead.
+    /// </remarks>
+    public sealed class SalutationOptions
+    {
+        /// <summary>
+        /// Language of the salutation: en, en-US, en-GB, de, de-AT, de-CH, fr, es, it, pt, pt-PT,
+        /// pt-BR, nl, tr, pl or ja. Unset uses the language of <see cref="Locale"/>, else the main
+        /// language of the country, else en. Another value is answered 422 <c>invalid_input</c>.
+        /// </summary>
+        public string? Language { get; set; }
+
+        /// <summary>ISO 3166-1 alpha-2 country hint for the gender lookup.</summary>
+        public string? Country { get; set; }
+
+        /// <summary>The end user's language tag, e.g. "de-AT": a country hint, and the default language.</summary>
+        public string? Locale { get; set; }
+
+        /// <summary>The end user's IP address: a country hint when neither a country nor a regional locale is set. Not stored.</summary>
+        public string? Ip { get; set; }
+
+        /// <summary>A gender you already know: <c>male</c>, <c>female</c> or <c>neutral</c>. Overrides the lookup; <c>neutral</c> always gives the neutral form.</summary>
+        public string? Gender { get; set; }
+
+        /// <summary>50 to 100; the API default is 90. Below it the neutral form is used.</summary>
+        public int? MinProbability { get; set; }
+
+        /// <summary>An academic title kept in its own field, e.g. "Dr."; used in German and English.</summary>
+        public string? Title { get; set; }
+    }
+
+    /// <summary>The salutation in three registers.</summary>
+    public sealed class SalutationText
+    {
+        /// <summary>E.g. "Sehr geehrte Frau Dr. Müller,".</summary>
+        [JsonPropertyName("formal")] public string Formal { get; set; } = "";
+
+        /// <summary>E.g. "Liebe Anna,".</summary>
+        [JsonPropertyName("informal")] public string Informal { get; set; } = "";
+
+        /// <summary>E.g. "Guten Tag Dr. Anna Müller,".</summary>
+        [JsonPropertyName("neutral")] public string Neutral { get; set; } = "";
+    }
+
+    /// <summary>The pieces of the formal salutation. Any of them may be null.</summary>
+    public sealed class SalutationParts
+    {
+        [JsonPropertyName("opening")] public string? Opening { get; set; }
+        [JsonPropertyName("courtesy")] public string? Courtesy { get; set; }
+        [JsonPropertyName("academic")] public string? Academic { get; set; }
+        [JsonPropertyName("name")] public string? Name { get; set; }
+    }
+
+    /// <summary>One salutation.</summary>
+    public class SalutationResult
+    {
+        /// <summary>The name you sent.</summary>
+        [JsonPropertyName("query")] public string? Query { get; set; }
+
+        [JsonPropertyName("language")] public string Language { get; set; } = "";
+
+        /// <summary><c>gendered</c>, <c>neutral</c> or <c>organization</c>.</summary>
+        [JsonPropertyName("form")] public string Form { get; set; } = "";
+
+        /// <summary>
+        /// Null when gendered; otherwise why not: <c>gender_unknown</c>, <c>below_min_probability</c>,
+        /// <c>gender_neutral_requested</c>, <c>no_surname</c>, <c>no_given_name</c> or <c>language_ungendered</c>.
+        /// </summary>
+        [JsonPropertyName("reason")] public string? Reason { get; set; }
+
+        [JsonPropertyName("salutation")] public SalutationText Salutation { get; set; } = new SalutationText();
+        [JsonPropertyName("parts")] public SalutationParts Parts { get; set; } = new SalutationParts();
+
+        /// <summary><c>male</c>, <c>female</c> or null.</summary>
+        [JsonPropertyName("gender")] public string? Gender { get; set; }
+
+        /// <summary><c>lookup</c>, <c>input</c>, <c>title</c> or null.</summary>
+        [JsonPropertyName("gender_source")] public string? GenderSource { get; set; }
+
+        /// <summary>0 to 100, or null when no lookup decided the gender.</summary>
+        [JsonPropertyName("probability")] public int? Probability { get; set; }
+
+        [JsonPropertyName("confidence")] public string? Confidence { get; set; }
+        [JsonPropertyName("first_name")] public string? FirstName { get; set; }
+        [JsonPropertyName("last_name")] public string? LastName { get; set; }
+
+        /// <summary><c>personal</c>, <c>organization</c> or <c>role</c>.</summary>
+        [JsonPropertyName("name_type")] public string? NameType { get; set; }
+
+        [JsonPropertyName("country")] public string? Country { get; set; }
+    }
+
+    /// <summary>A single salutation: the result plus the envelope.</summary>
+    public sealed class SalutationResponse : SalutationResult
+    {
+        [JsonPropertyName("credits_charged")] public int CreditsCharged { get; set; }
+        [JsonPropertyName("credits_remaining")] public int CreditsRemaining { get; set; }
+        [JsonPropertyName("data_version")] public string? DataVersion { get; set; }
+        [JsonPropertyName("request_id")] public string? RequestId { get; set; }
+
+        /// <summary>Where <see cref="SalutationResult.Country"/> came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+    }
+
+    /// <summary>How many names in a bulk salutation got each form.</summary>
+    public sealed class SalutationSummary
+    {
+        [JsonPropertyName("total")] public int Total { get; set; }
+        [JsonPropertyName("gendered")] public int Gendered { get; set; }
+        [JsonPropertyName("neutral")] public int Neutral { get; set; }
+        [JsonPropertyName("organization")] public int Organization { get; set; }
+    }
+
+    /// <summary>A bulk salutation. Results are in the order the names were sent.</summary>
+    public sealed class SalutationBulkResponse : Envelope
+    {
+        [JsonPropertyName("language")] public string Language { get; set; } = "";
+        [JsonPropertyName("results")] public List<SalutationResult> Results { get; set; } = new List<SalutationResult>();
+        [JsonPropertyName("summary")] public SalutationSummary Summary { get; set; } = new SalutationSummary();
+
+        /// <summary>Where the request's country came from: <c>country</c>, <c>locale</c>, <c>ip</c> or null when none was used.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+    }
+
+    /// <summary>
     /// Which countries a name is recorded in. Not a country-of-origin or ethnicity
     /// inference: <see cref="Registrations"/> is counted volume, comparable only among
     /// countries that publish counted birth statistics, and <see cref="AttestedIn"/> is

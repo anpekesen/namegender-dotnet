@@ -77,6 +77,43 @@ var result = await client.NameAsync("Andrea", new LookupOptions
 // result.Country "IT", result.CountrySource "locale"
 ```
 
+## Salutation
+
+A ready-made greeting for a name, in the language you ask for. One credit per name.
+
+```csharp
+var anna = await client.SalutationAsync("Dr. Anna Müller", new SalutationOptions { Language = "de" });
+// anna.Salutation.Formal "Sehr geehrte Frau Dr. Müller,", anna.Salutation.Informal "Liebe Anna,"
+
+var ahmet = await client.SalutationAsync("Ahmet Yılmaz", new SalutationOptions { Language = "tr" });
+// ahmet.Salutation.Formal "Sayın Ahmet Bey,"
+
+// First and last name stored separately: nothing is parsed
+await client.SalutationFromPartsAsync("Anna", "Müller", new SalutationOptions { Language = "de", Title = "Dr." });
+
+// Up to 100 names; the options apply to every name, results come back in order
+var many = await client.SalutationBulkAsync(new[] { "Dr. Anna Müller", "Acme GmbH" }, new SalutationOptions { Language = "de" });
+Console.WriteLine(many.Summary.Gendered);
+```
+
+When the gender is not certain, the salutation uses the neutral form
+("Guten Tag Anna Müller,") instead of guessing. `Form` is `gendered`, `neutral`
+or `organization`, and `Reason` says why it is not gendered (`gender_unknown`,
+`below_min_probability`, ...). `BestGuess` does not apply here; lower
+`MinProbability` (50–100, default 90) or set a gender you already know with
+`Gender = "female"` instead.
+
+| Option | Sent as | Effect |
+|---|---|---|
+| `Language` | `language` | en, en-US, en-GB, de, de-AT, de-CH, fr, es, it, pt, pt-PT, pt-BR, nl, tr, pl or ja. Unset: the language of `Locale`, else the country's main language, else en. Another value is a 422. |
+| `Country`, `Locale`, `Ip` | `country`, `locale`, `ip` | Country hint for the gender lookup, as in [Options](#options). |
+| `Gender` | `gender` | `male`, `female` or `neutral`. Overrides the lookup; `neutral` always gives the neutral form. |
+| `MinProbability` | `min_probability` | 50–100, default 90. Below it the neutral form is used. |
+| `Title` | `title` | An academic title in its own field, e.g. `Dr.`; used in German and English. |
+
+`Parts` holds the pieces of the formal salutation (`Opening`, `Courtesy`,
+`Academic`, `Name`); any of them may be null.
+
 ## Country distribution
 
 Which countries a name is recorded in. This is not a country-of-origin or
