@@ -372,6 +372,110 @@ namespace NameGender
     }
 
     /// <summary>
+    /// Options for <see cref="NameGenderClient.AgeAsync"/> and <see cref="NameGenderClient.AgeBulkAsync"/>.
+    /// Only the ones set are sent.
+    /// </summary>
+    public sealed class AgeOptions
+    {
+        /// <summary><c>male</c> or <c>female</c>: use only that gender's records.</summary>
+        public string? Gender { get; set; }
+
+        /// <summary>ISO 3166-1 alpha-2 country whose records are used. US, FR and NO are covered.</summary>
+        public string? Country { get; set; }
+
+        /// <summary>The end user's language tag, e.g. "fr-FR": a country hint.</summary>
+        public string? Locale { get; set; }
+
+        /// <summary>The end user's IP address: a country hint when neither a country nor a regional locale is set. Not stored.</summary>
+        public string? Ip { get; set; }
+    }
+
+    /// <summary>A range of ages, both ends included.</summary>
+    public sealed class AgeRange
+    {
+        [JsonPropertyName("low")] public int Low { get; set; }
+        [JsonPropertyName("high")] public int High { get; set; }
+    }
+
+    /// <summary>
+    /// The age of the people recorded with a first name. It describes a group, not a person:
+    /// never use it for decisions about an individual.
+    /// </summary>
+    public class AgeResult
+    {
+        /// <summary>The name you sent.</summary>
+        [JsonPropertyName("name")] public string? Name { get; set; }
+
+        /// <summary>The first name that was looked up, or null.</summary>
+        [JsonPropertyName("first_name")] public string? FirstName { get; set; }
+
+        /// <summary>The gender asked for, or null when both were used.</summary>
+        [JsonPropertyName("gender")] public string? Gender { get; set; }
+
+        /// <summary>Median age of the people with this name; null when there is no answer (see <see cref="Reason"/>).</summary>
+        [JsonPropertyName("age")] public int? Age { get; set; }
+
+        /// <summary>The middle half of the ages (25th to 75th percentile), or null.</summary>
+        [JsonPropertyName("age_range")] public AgeRange? AgeRange { get; set; }
+
+        /// <summary>The middle 80% of the ages (10th to 90th percentile), or null.</summary>
+        [JsonPropertyName("age_range_80")] public AgeRange? AgeRange80 { get; set; }
+
+        /// <summary>Median birth year, or null.</summary>
+        [JsonPropertyName("birth_year")] public int? BirthYear { get; set; }
+
+        /// <summary>How many people the estimate rests on.</summary>
+        [JsonPropertyName("sample_size")] public long SampleSize { get; set; }
+
+        /// <summary>Births recorded with the name.</summary>
+        [JsonPropertyName("births")] public long Births { get; set; }
+
+        /// <summary>The country whose records answered, e.g. <c>US</c>.</summary>
+        [JsonPropertyName("country")] public string? Country { get; set; }
+
+        /// <summary>
+        /// Where <see cref="Country"/> came from: <c>country</c>, <c>locale</c>, <c>ip</c> or
+        /// <c>default</c> (no hint, US data used).
+        /// </summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+
+        /// <summary>The data source, e.g. <c>ssa</c>, or null.</summary>
+        [JsonPropertyName("source")] public string? Source { get; set; }
+
+        /// <summary>The years the source covers, e.g. <c>1880-2024</c>, or null.</summary>
+        [JsonPropertyName("series")] public string? Series { get; set; }
+
+        /// <summary>The year ages are counted to.</summary>
+        [JsonPropertyName("reference_year")] public int? ReferenceYear { get; set; }
+
+        /// <summary>
+        /// Why <see cref="Age"/> is null: <c>not_found</c>, <c>insufficient_data</c> or
+        /// <c>country_not_covered</c> (no credit charged). Null when there is an age.
+        /// </summary>
+        [JsonPropertyName("reason")] public string? Reason { get; set; }
+
+        /// <summary>True when <see cref="Age"/> is not null.</summary>
+        [JsonIgnore] public bool IsKnown => Age != null;
+    }
+
+    /// <summary>A single age lookup: the result plus the envelope.</summary>
+    public sealed class AgeResponse : AgeResult
+    {
+        [JsonPropertyName("credits_charged")] public int CreditsCharged { get; set; }
+        [JsonPropertyName("credits_remaining")] public int CreditsRemaining { get; set; }
+        [JsonPropertyName("request_id")] public string? RequestId { get; set; }
+    }
+
+    /// <summary>A bulk age lookup. Results are in the order the names were sent.</summary>
+    public sealed class AgeBulkResponse : Envelope
+    {
+        [JsonPropertyName("results")] public List<AgeResult> Results { get; set; } = new List<AgeResult>();
+
+        /// <summary>Where the request's country came from: <c>country</c>, <c>locale</c>, <c>ip</c> or <c>default</c>.</summary>
+        [JsonPropertyName("country_source")] public string? CountrySource { get; set; }
+    }
+
+    /// <summary>
     /// Which countries a name is recorded in. Not a country-of-origin or ethnicity
     /// inference: <see cref="Registrations"/> is counted volume, comparable only among
     /// countries that publish counted birth statistics, and <see cref="AttestedIn"/> is

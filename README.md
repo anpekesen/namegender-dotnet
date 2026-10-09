@@ -143,6 +143,34 @@ a look, not to reject people automatically. Surnames are judged by their shape
 only. `NameCheckOptions` takes `Country`, `Locale` and `Ip`, as in
 [Options](#options).
 
+## Age from name
+
+How old the people recorded with a first name are: the median age, the middle
+half and the middle 80% of their ages. One credit per name.
+
+```csharp
+var brittany = await client.AgeAsync("Brittany");
+// brittany.Age 36, brittany.AgeRange 32–38 (middle half), brittany.AgeRange80 28–41,
+// brittany.BirthYear 1990, brittany.CountrySource "default" (no hint: US data)
+
+// Only one gender's records
+await client.AgeAsync("Jordan", new AgeOptions { Gender = "female", Country = "US" });
+
+// Up to 100 names; the options apply to every name, results come back in order
+var many = await client.AgeBulkAsync(new[] { "Brittany", "Margaret" }, new AgeOptions { Country = "US" });
+Console.WriteLine(many.Results[1].Age);
+```
+
+It covers the US, France and Norway. For another country `Age` is null and
+`Reason` is `country_not_covered`, and no credit is charged; `not_found` and
+`insufficient_data` are the other reasons. A null `Age` is an answer, not an
+exception. `AgeOptions` takes `Gender` (`male` or `female`, narrows to that
+gender's records), `Country`, `Locale` and `Ip`, as in [Options](#options);
+with no hint the US data is used and `CountrySource` is `default`.
+
+The age describes a group, not a person: never use it for decisions about an
+individual.
+
 ## Country distribution
 
 Which countries a name is recorded in. This is not a country-of-origin or
